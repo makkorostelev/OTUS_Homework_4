@@ -1,4 +1,4 @@
-# OTUS_Homework_3
+# OTUS_Homework_4
  
 Project creates one YC LB, 2 nginx proxy server, 2 nginx+php-fpm+wordpress backends and mysql db server.\
 To work with the project you need to write your data into variables.tf.\
