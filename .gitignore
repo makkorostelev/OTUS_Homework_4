@@ -1,0 +1,6 @@
+my_variables.tf
+terraform.tfstate
+terraform.tfstate.backup
+.terraform
+.terraform.*
+.vscode

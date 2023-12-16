@@ -1,0 +1,131 @@
+---
+- hosts: backend
+  become: yes
+  gather_facts: true
+  vars:
+    pakages:
+      - nginx
+      - php8.1-fpm
+      - php-curl 
+      - php-json
+      - php-gd
+      - php-mbstring
+      - php-intl
+      - php-bcmath
+      - php-bz2
+      - php-readline
+      - php-zip
+      - php-xml
+      - php-xmlrpc
+      - php-soap
+      - php-imagick
+      - php-mysql
+  tasks:
+    - name: Install pakages
+      apt:
+        pkg: "{{pakages}}"
+        state: latest
+        update_cache: yes
+    - name: Download and extracting WordPress
+      unarchive:
+       src: https://ru.wordpress.org/latest-ru_RU.tar.gz
+       dest: /var/www
+       remote_src: yes
+    - name: Copy wp-config.php
+      copy:
+        src: ./wp-config.php
+        dest: /var/www/wordpress
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Editing wp-config.php
+      lineinfile: dest=/var/www/wordpress/wp-config.php regexp='^WP_SITEURL' line='define( \'WP_SITEURL\', \'http://{{ public_ip }}\' );'
+    - name: Copy wp.conf
+      copy:
+        src: ./wp.conf
+        dest: /etc/nginx/sites-available/wp.conf
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Create symlink wp.conf
+      file:
+        src: /etc/nginx/sites-available/wp.conf
+        dest: /etc/nginx/sites-enabled/wp.conf
+        state: link
+    - name: Delete default.conf
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+    - name: Recursively change ownership of wordpress directory
+      file:
+        path: /var/www/w
+        state: directory
+        recurse: yes
+        owner: www-data
+        group: www-data
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
+
+
+
+- hosts: database
+  become: yes
+  gather_facts: true
+  tasks:
+    - name: Install pakages
+      apt:
+        pkg:
+          - mysql-server
+          - mysql-client
+          - python3-pip
+        state: present
+        update_cache: yes
+    - name: Make sure pymysql is present
+      pip:
+        name: pymysql
+        state: present
+    - name: Editing listen DB address
+      lineinfile: dest=/etc/mysql/mysql.conf.d/mysqld.cnf regexp='^bind-address' line='bind-address            = 0.0.0.0'
+    - lineinfile: dest=/etc/mysql/mysql.conf.d/mysqld.cnf regexp='^mysqlx-bind-address' line='mysqlx-bind-address     = 0.0.0.0'
+    - name: Restart Mysql
+      service:
+        name: mysql
+        state: restarted
+    - name: Create mysql user
+      mysql_user:
+        name: wp_user
+        password: wp_password
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        priv: '*.*:ALL'
+        host: '%'
+        check_implicit_admin: true
+    - name: Create DB
+      mysql_db:
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        name: wp_database
+        state: present
+
+
+
+
+- hosts: nginx
+  become: yes
+  gather_facts: false
+  tasks:
+    - name: Install Nginx
+      apt:
+        pkg: nginx
+        state: latest
+    - name: Copy nginx.conf
+      copy:
+        src: ./nginx.conf
+        dest: /etc/nginx/nginx.conf
+        owner: root
+        group: root
+        mode: '0644'
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
